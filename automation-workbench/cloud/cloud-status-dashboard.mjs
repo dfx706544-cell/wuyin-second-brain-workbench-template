@@ -10,6 +10,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const WORKBENCH_ROOT = path.dirname(SCRIPT_DIR);
 const WORKSPACE_ROOT = path.dirname(WORKBENCH_ROOT);
 const OUTPUT_DIR = path.join(WORKSPACE_ROOT, ".pages-site", "status");
+const LEGACY_PAGES_DIR = path.join(WORKSPACE_ROOT, "status");
 const STATUS_FILE = path.join(WORKBENCH_ROOT, "data", "cloud-status.json");
 const MAINTENANCE_DIR = path.join(WORKSPACE_ROOT, "outputs");
 
@@ -164,13 +165,18 @@ export async function generateStatusDashboard() {
 </html>`;
 
   await ensureDir(OUTPUT_DIR);
-  await writeFile(path.join(OUTPUT_DIR, "index.html"), html, "utf8");
-  await writeFile(path.join(OUTPUT_DIR, "dashboard.json"), JSON.stringify({
+  await ensureDir(LEGACY_PAGES_DIR);
+  const dashboard = JSON.stringify({
     lastUpdate: new Date().toISOString(),
     health,
     summary,
     lastRun: lastRun ? { ts: lastRun.ts, ok: lastRun.ok } : null
-  }, null, 2), "utf8");
+  }, null, 2);
+
+  await writeFile(path.join(OUTPUT_DIR, "index.html"), html, "utf8");
+  await writeFile(path.join(OUTPUT_DIR, "dashboard.json"), dashboard, "utf8");
+  await writeFile(path.join(LEGACY_PAGES_DIR, "index.html"), html, "utf8");
+  await writeFile(path.join(LEGACY_PAGES_DIR, "dashboard.json"), dashboard, "utf8");
 
   return { path: path.join(OUTPUT_DIR, "index.html") };
 }

@@ -1,4 +1,5 @@
-name: Cloud Status Dashboard
+name: "02 Cloud Status Dashboard - Build & Deploy"
+run-name: "Status dashboard deploy by @${{ github.actor }}"
 
 on:
   workflow_dispatch:
@@ -17,12 +18,16 @@ permissions:
   id-token: write
 
 concurrency:
-  group: cloud-status
+  group: cloud-status-dashboard
   cancel-in-progress: true
 
 jobs:
-  build-status:
+  build-and-deploy-status:
+    name: "Build status page and deploy to GitHub Pages"
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.0
@@ -33,7 +38,7 @@ jobs:
           node-version: "22"
 
       - name: Ensure directories
-        run: mkdir -p outputs data .tmp .pages-site
+        run: mkdir -p outputs automation-workbench/data .tmp .pages-site
 
       - name: Generate status dashboard
         run: node automation-workbench/cloud/cloud-status-dashboard.mjs
@@ -42,7 +47,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .pages-site/status/ data/cloud-status.json 2>/dev/null || true
+          git add .pages-site/status/ automation-workbench/data/cloud-status.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No status updates to commit."
           else
@@ -50,17 +55,10 @@ jobs:
             git push
           fi
 
-  deploy-pages:
-    needs: build-status
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Build Pages site
+      - name: Build Pages site from generated status
         run: |
           mkdir -p _site
           cp -r .pages-site/* _site/ 2>/dev/null || true

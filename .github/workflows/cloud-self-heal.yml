@@ -1,21 +1,24 @@
-name: Second Book Self-Heal Runner
+name: "01 Cloud Self-Heal - Data Check & Repair"
+run-name: "Self-heal check by @${{ github.actor }}"
 
 on:
   workflow_dispatch:
   schedule:
-    # 每天 8:30 Asia/Shanghai (UTC 0:30)
-    - cron: "30 0 * * *"
-    # 每天 13:00 Asia/Shanghai (UTC 5:00) 下午巡检
-    - cron: "0 5 * * *"
-    # 每天 20:00 Asia/Shanghai (UTC 12:00) 晚间归档
-    - cron: "0 12 * * *"
+    - cron: "30 0 * * *" # Beijing 08:30 - morning health check
+    - cron: "0 5 * * *" # Beijing 13:00 - midday recheck
+    - cron: "0 12 * * *" # Beijing 20:00 - evening archive check
 
 permissions:
   contents: write
   issues: write
 
+concurrency:
+  group: cloud-self-heal
+  cancel-in-progress: false
+
 jobs:
-  self-heal-check:
+  data-check-and-repair:
+    name: "Check data, repair safe issues, report failures"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,7 +30,7 @@ jobs:
           node-version: "22"
 
       - name: Ensure directories
-        run: mkdir -p outputs data .tmp
+        run: mkdir -p outputs automation-workbench/data .tmp
 
       - name: Run data integrity check
         id: integrity
@@ -37,24 +40,24 @@ jobs:
       - name: Generate self-heal suggestions
         id: suggestions
         run: |
-          echo "## 自愈建议" >> $GITHUB_STEP_SUMMARY
-          node automation-workbench/cloud/cloud-self-heal.mjs suggest >> $GITHUB_STEP_SUMMARY
+          echo "## Self-heal suggestions" >> "$GITHUB_STEP_SUMMARY"
+          node automation-workbench/cloud/cloud-self-heal.mjs suggest >> "$GITHUB_STEP_SUMMARY"
 
       - name: Show cloud status
         id: status
-        run: node automation-workbench/cloud/cloud-self-heal.mjs status >> $GITHUB_STEP_SUMMARY
+        run: node automation-workbench/cloud/cloud-self-heal.mjs status >> "$GITHUB_STEP_SUMMARY"
 
       - name: Open GitHub Issue on critical errors
         if: steps.integrity.outcome == 'failure'
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('outputs/data-integrity-report-latest.md', 'utf8');
+            const fs = require("fs");
+            const report = fs.readFileSync("outputs/data-integrity-report-latest.md", "utf8");
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: "🚨 第二大脑数据完整性异常 - " + new Date().toISOString().slice(0,10),
+              title: `Cloud data integrity failure - ${new Date().toISOString().slice(0, 10)}`,
               body: report.slice(0, 60000)
             });
 
@@ -62,9 +65,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add outputs/*.md data/*.json 2>/dev/null || true
+          git add outputs/*.md automation-workbench/data/*.json 2>/dev/null || true
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "No integrity changes to commit."
           else
             git commit -m "fix(cloud): auto-repair data integrity"
             git push

@@ -12,10 +12,7 @@ on:
   schedule:
     - cron: "*/30 * * * *"
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
+permissions: write-all
 
 concurrency:
   group: cloud-status-dashboard

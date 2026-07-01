@@ -14,7 +14,7 @@ on:
 permissions:
   contents: write
   pages: write
-  id-token=<SECRET:hash:10fd874b68>
+  id-token: write
 
 concurrency:
   group: cloud-status
